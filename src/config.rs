@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{debug, info, warn};
+use toml;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {

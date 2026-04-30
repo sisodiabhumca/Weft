@@ -10,15 +10,15 @@ repository = "https://github.com/sisodiabhumca/Weft"
 [dependencies]
 # Core terminal and rendering
 tokio = { version = "1.35", features = ["full"] }
-winit = "0.29"
-wgpu = "0.18"
-egui = "0.24"
-egui-wgpu = "0.24"
-egui-winit = "0.24"
+# winit = "0.29"
+# wgpu = "0.18"
+# egui = "0.24"
+# egui-wgpu = "0.24"
+# egui-winit = "0.24"
 
 # Terminal emulation
-vte = "0.13"
-alacritty_terminal = "0.23"
+# vte = "0.13"
+# alacritty_terminal = "0.23"
 unicode-width = "0.1"
 
 # AI and ML
@@ -39,8 +39,8 @@ futures-util = "0.3"
 reqwest = { version = "0.11", features = ["json", "stream"] }
 
 # Plugin system
-libloading = "0.8"
-dlopen = "0.1.1"
+# libloading = "0.8"
+# dlopen = "0.1.1"
 
 # Performance and optimization
 parking_lot = "0.12"
@@ -54,6 +54,11 @@ libc = "0.2"
 num_cpus = "1.16"
 toml = "0.8"
 clap = { version = "4.4", features = ["derive"] }
+
+# Additional dependencies for GUI and system integration
+raw-window-handle = "0.5"
+log = "0.4"
+env_logger = "0.10"
 
 # Logging and debugging
 tracing = "0.1"
