@@ -1,0 +1,75 @@
+[package]
+name = "weft-terminal"
+version = "0.1.0"
+edition = "2021"
+description = "Next-generation AI-powered terminal development environment"
+authors = ["Gaurav Sisodia"]
+license = "All Rights Reserved"
+repository = "https://github.com/weft-terminal/weft"
+
+[dependencies]
+# Core terminal and rendering
+tokio = { version = "1.35", features = ["full"] }
+winit = "0.29"
+wgpu = "0.18"
+egui = "0.24"
+egui-wgpu = "0.24"
+egui-winit = "0.24"
+
+# Terminal emulation
+vte = "0.13"
+alacritty_terminal = "0.23"
+unicode-width = "0.1"
+
+# AI and ML
+ollama-rs = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio-stream = "0.1"
+
+# Configuration and state
+config = "0.14"
+dirs = "5.0"
+uuid = { version = "1.6", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Networking and collaboration
+tokio-tungstenite = "0.21"
+futures-util = "0.3"
+reqwest = { version = "0.11", features = ["json", "stream"] }
+
+# Plugin system
+libloading = "0.8"
+dlopen = "0.1"
+
+# Performance and optimization
+parking_lot = "0.12"
+crossbeam = "0.8"
+rayon = "1.8"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Logging and debugging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3.8"
+
+[[bin]]
+name = "weft"
+path = "src/main.rs"
+
+[lib]
+name = "weft_terminal"
+path = "src/lib.rs"
+
+[features]
+default = ["gpu-acceleration"]
+gpu-acceleration = []
+ai-features = []
+collaboration = []
+plugins = []
