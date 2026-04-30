@@ -8,57 +8,15 @@ license = "All Rights Reserved"
 repository = "https://github.com/sisodiabhumca/Weft"
 
 [dependencies]
-# Core terminal and rendering
+# Core dependencies
 tokio = { version = "1.35", features = ["full"] }
-# winit = "0.29"
-# wgpu = "0.18"
-# egui = "0.24"
-# egui-wgpu = "0.24"
-# egui-winit = "0.24"
-
-# Terminal emulation
-# vte = "0.13"
-# alacritty_terminal = "0.23"
-unicode-width = "0.1"
-
-# AI and ML
-ollama-rs = "0.1.6"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tokio-stream = "0.1"
-
-# Configuration and state
-config = "0.13.4"
-dirs = "5.0.1"
-uuid = { version = "1.7", features = ["v4"] }
-chrono = { version = "0.4.31", features = ["serde"] }
-
-# Networking and collaboration
-tokio-tungstenite = "0.20.1"
-futures-util = "0.3"
-reqwest = { version = "0.11", features = ["json", "stream"] }
-
-# Plugin system
-# libloading = "0.8"
-# dlopen = "0.1.1"
-
-# Performance and optimization
-parking_lot = "0.12"
-crossbeam = "0.8"
-rayon = "1.7"
-
-# Error handling
 anyhow = "1.0"
-thiserror = "1.0"
-libc = "0.2"
-num_cpus = "1.16"
-toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4.4", features = ["derive"] }
-
-# Additional dependencies for GUI and system integration
-raw-window-handle = "0.5"
-log = "0.4"
-env_logger = "0.10"
+toml = "0.8"
+dirs = "5.0.1"
 
 # Logging and debugging
 tracing = "0.1"

@@ -4,15 +4,6 @@
 //! that combines powerful AI capabilities with collaborative features and
 //! extensible plugin architecture.
 
-pub mod config;
-// pub mod terminal;
-// pub mod ai;
-// pub mod rendering;
-// pub mod plugins;
-// pub mod collaboration;
-// pub mod debugging;
-// pub mod performance;
-
 use anyhow::Result;
 use std::sync::Arc;
 
