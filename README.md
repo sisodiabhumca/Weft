@@ -7,7 +7,7 @@ Weft is a modern terminal that combines powerful AI capabilities with collaborat
 ## �️ Interface Preview
 
 ### Main Terminal Interface
-![Main Interface](assets/images/main-interface.png)
+![Main Interface](assets/images/main-interface.txt)
 
 The Weft Terminal features a clean, modern interface with:
 - **Command Input Area**: Intelligent autocomplete and AI suggestions
@@ -16,7 +16,7 @@ The Weft Terminal features a clean, modern interface with:
 - **Session Management**: Multiple terminal tabs with independent state
 
 ### AI-Powered Command Assistance
-![AI Suggestions](assets/images/ai-suggestions.png)
+![AI Suggestions](assets/images/ai-suggestions.txt)
 
 Experience intelligent command completion with:
 - **Natural Language Processing**: Type "show running processes" and get `ps aux`
@@ -25,16 +25,16 @@ Experience intelligent command completion with:
 - **Multi-Model Support**: Choose between local Ollama models or cloud APIs
 
 ### Real-Time Collaboration
-![Collaboration](assets/images/collaboration.png)
+![Collaboration](assets/images/collaboration.txt)
 
 Work together seamlessly with:
 - **Live Session Sharing**: Multiple users in the same terminal session
-- **Cursors and Highlighting**: See other users' actions in real-time
+- **Cursors and Highlighting**: See other users' actions in real time
 - **Encrypted Communication**: Secure end-to-end encryption for sensitive work
 - **Role-Based Permissions**: Control who can execute commands vs. observe
 
 ### Theme Customization
-![Themes](assets/images/themes.png)
+![Themes](assets/images/themes.txt)
 
 Personalize your workspace with:
 - **Built-in Themes**: Dark, Light, Monokai, Dracula, Solarized
@@ -43,7 +43,7 @@ Personalize your workspace with:
 - **Font Configuration**: Full control over fonts, sizes, and rendering
 
 ### Plugin Management
-![Plugins](assets/images/plugins.png)
+![Plugins](assets/images/plugins.txt)
 
 Extend functionality with:
 - **Secure Plugin System**: Sandboxed execution with permission controls
@@ -52,7 +52,7 @@ Extend functionality with:
 - **Plugin Marketplace**: Discover and install community extensions
 
 ### Performance & Debugging
-![Debugging](assets/images/debugging.png)
+![Debugging](assets/images/debugging.txt)
 
 Monitor and optimize with:
 - **Real-time Performance Metrics**: CPU, memory, and network usage
