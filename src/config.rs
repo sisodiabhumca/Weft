@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tracing::{debug, info, warn};
 use toml;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Config {
     pub terminal: TerminalConfig,
     pub ai: AIConfig,
@@ -21,7 +21,7 @@ pub struct Config {
     pub debugging: DebuggingConfig,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TerminalConfig {
     pub shell: String,
     pub font_family: String,
@@ -57,7 +57,7 @@ pub enum RightClickAction {
     ExtendSelection,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AIConfig {
     pub enabled: bool,
     pub provider: AIProvider,
@@ -86,7 +86,7 @@ pub struct CustomPrompt {
     pub triggers: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RenderingConfig {
     pub renderer: RendererType,
     pub vsync: bool,
@@ -105,7 +105,7 @@ pub enum RendererType {
     Software,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PluginConfig {
     pub enabled: bool,
     pub auto_load: bool,
@@ -122,7 +122,7 @@ pub enum SecurityPolicy {
     DenyAll,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CollaborationConfig {
     pub enabled: bool,
     pub server_url: Option<String>,
@@ -132,7 +132,7 @@ pub struct CollaborationConfig {
     pub encryption_enabled: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DebuggingConfig {
     pub enabled: bool,
     pub log_level: LogLevel,

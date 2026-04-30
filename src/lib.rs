@@ -4,18 +4,20 @@
 //! that combines powerful AI capabilities with collaborative features and
 //! extensible plugin architecture.
 
+pub mod config_simple;
+
 use anyhow::Result;
 use std::sync::Arc;
 
 /// Main Weft application structure
 pub struct WeftApp {
-    config: Arc<config::Config>,
+    config: Arc<config_simple::Config>,
 }
 
 impl WeftApp {
     /// Create a new Weft application instance
     pub async fn new() -> Result<Self> {
-        let config = Arc::new(config::Config::load()?);
+        let config = Arc::new(config_simple::Config::load()?);
 
         Ok(Self {
             config,
