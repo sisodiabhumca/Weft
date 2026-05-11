@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use weft_terminal::config_simple::Config;
+use weft_terminal::plugin_store::{self, PluginPaths};
 use weft_terminal::WeftApp;
 
 #[derive(Parser)]
@@ -47,8 +48,13 @@ enum ConfigAction {
 
 #[derive(Subcommand)]
 enum PluginAction {
+    /// Installed plugins under the data directory (see `weft config path` for config location).
     List,
-    Install { name: String },
+    /// Install by copying a plugin directory into the store (`plugin.toml` may set `name`).
+    Install {
+        /// Path to the plugin directory to copy.
+        path: String,
+    },
     Remove { name: String },
     Enable { name: String },
     Disable { name: String },
@@ -85,7 +91,7 @@ async fn main() -> Result<()> {
             handle_config(action).await?;
         }
         Commands::Plugin { action } => {
-            handle_plugin(action).await?;
+            handle_plugin(action)?;
         }
     }
 
@@ -102,26 +108,8 @@ async fn run_terminal(config_path: Option<PathBuf>) -> Result<()> {
     };
     app.initialize().await?;
 
-    // Set up signal handlers for graceful shutdown
-    let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel();
-
-    tokio::spawn(async move {
-        // Handle Ctrl+C
-        if let Ok(()) = tokio::signal::ctrl_c().await {
-            tracing::info!("Received shutdown signal");
-            let _ = shutdown_tx.send(());
-        }
-    });
-
-    // Run the application until shutdown
-    tokio::select! {
-        result = app.run() => {
-            result?;
-        }
-        _ = &mut shutdown_rx => {
-            tracing::info!("Shutting down gracefully");
-        }
-    }
+    // Shell handles signals while running; `WeftApp::run` also stops the child on Ctrl+C.
+    app.run().await?;
 
     Ok(())
 }
@@ -184,27 +172,41 @@ fn config_action_needs_load(action: &ConfigAction) -> bool {
     )
 }
 
-async fn handle_plugin(action: PluginAction) -> Result<()> {
+fn handle_plugin(action: PluginAction) -> Result<()> {
+    let paths = PluginPaths::default_xdg();
     match action {
         PluginAction::List => {
-            // TODO: Implement plugin listing
-            println!("Plugin listing not yet implemented");
+            let plugins = plugin_store::list_plugins(&paths)?;
+            if plugins.is_empty() {
+                println!("(no plugins installed under {})", paths.plugins_dir.display());
+                return Ok(());
+            }
+            println!("{:<24} {:<8} PATH", "ID", "ENABLED");
+            for p in plugins {
+                println!(
+                    "{:<24} {:<8} {}",
+                    p.id,
+                    if p.enabled { "yes" } else { "no" },
+                    p.path.display()
+                );
+            }
         }
-        PluginAction::Install { name } => {
-            // TODO: Implement plugin installation
-            println!("Installing plugin: {}", name);
+        PluginAction::Install { path } => {
+            let src = PathBuf::from(&path);
+            let id = plugin_store::install_plugin(&paths, &src)?;
+            println!("Installed plugin '{}' -> {}", id, paths.plugins_dir.join(&id).display());
         }
         PluginAction::Remove { name } => {
-            // TODO: Implement plugin removal
-            println!("Removing plugin: {}", name);
+            plugin_store::remove_plugin(&paths, &name)?;
+            println!("Removed plugin '{}'", name);
         }
         PluginAction::Enable { name } => {
-            // TODO: Implement plugin enabling
-            println!("Enabling plugin: {}", name);
+            plugin_store::set_enabled(&paths, &name, true)?;
+            println!("Enabled plugin '{}'", name);
         }
         PluginAction::Disable { name } => {
-            // TODO: Implement plugin disabling
-            println!("Disabling plugin: {}", name);
+            plugin_store::set_enabled(&paths, &name, false)?;
+            println!("Disabled plugin '{}'", name);
         }
     }
     Ok(())

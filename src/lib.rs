@@ -5,9 +5,11 @@
 //! extensible plugin architecture.
 
 pub mod config_simple;
+pub mod plugin_store;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::path::PathBuf;
+use std::process::Stdio;
 use std::sync::Arc;
 
 /// Main Weft application structure
@@ -39,14 +41,40 @@ impl WeftApp {
         Ok(())
     }
 
-    /// Run the main application loop
+    /// Run an interactive session: spawn the configured shell with inherited stdio and wait.
     pub async fn run(&mut self) -> Result<()> {
-        tracing::info!("Starting Weft Terminal main loop");
-
-        loop {
-            // Small delay to prevent CPU spinning
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        let shell = self.config.terminal.shell.trim();
+        if shell.is_empty() {
+            anyhow::bail!("terminal.shell is empty");
         }
+
+        tracing::info!("Launching shell: {}", shell);
+
+        let mut cmd = tokio::process::Command::new(shell);
+        cmd.stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .kill_on_drop(true);
+
+        let mut child = cmd
+            .spawn()
+            .with_context(|| format!("failed to spawn shell '{}'", shell))?;
+
+        tokio::select! {
+            status = child.wait() => {
+                let status = status?;
+                if !status.success() {
+                    tracing::info!("shell exited with code {:?}", status.code());
+                }
+            }
+            _ = tokio::signal::ctrl_c() => {
+                tracing::info!("Ctrl+C received, stopping shell");
+                let _ = child.start_kill();
+                let _ = child.wait().await;
+            }
+        }
+
+        Ok(())
     }
 }
 
