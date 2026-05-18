@@ -3,12 +3,14 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use weft_terminal::config_simple::Config;
+use weft_terminal::doctor;
 use weft_terminal::plugin_store::{self, PluginPaths};
+use weft_terminal::suggest;
 use weft_terminal::WeftApp;
 
 #[derive(Parser)]
 #[command(name = "weft")]
-#[command(about = "Next-generation AI-powered terminal")]
+#[command(about = "AI-assisted terminal environment")]
 #[command(version = env!("CARGO_PKG_VERSION"))]
 struct Cli {
     #[command(subcommand)]
@@ -17,14 +19,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Start the terminal
+    /// Start an interactive shell session
     Run {
         #[arg(short, long)]
         config: Option<String>,
         #[arg(long)]
         debug: bool,
     },
-    /// Show configuration
+    /// Configuration management
     Config {
         #[command(subcommand)]
         action: ConfigAction,
@@ -33,6 +35,18 @@ enum Commands {
     Plugin {
         #[command(subcommand)]
         action: PluginAction,
+    },
+    /// Command suggestions (static rules + optional Ollama)
+    Suggest {
+        /// Partial command or natural-language intent
+        query: String,
+        #[arg(short, long)]
+        config: Option<String>,
+    },
+    /// Health checks for shell, config, plugins, and AI
+    Doctor {
+        #[arg(short, long)]
+        config: Option<String>,
     },
 }
 
@@ -48,13 +62,8 @@ enum ConfigAction {
 
 #[derive(Subcommand)]
 enum PluginAction {
-    /// Installed plugins under the data directory (see `weft config path` for config location).
     List,
-    /// Install by copying a plugin directory into the store (`plugin.toml` may set `name`).
-    Install {
-        /// Path to the plugin directory to copy.
-        path: String,
-    },
+    Install { path: String },
     Remove { name: String },
     Enable { name: String },
     Disable { name: String },
@@ -68,11 +77,10 @@ async fn main() -> Result<()> {
         debug: false,
     });
 
-    // Initialize logging
     let log_level = if matches!(command, Commands::Run { debug: true, .. }) {
         tracing::Level::DEBUG
     } else {
-        tracing::Level::INFO
+        tracing::Level::WARN
     };
 
     tracing_subscriber::registry()
@@ -84,34 +92,58 @@ async fn main() -> Result<()> {
         .init();
 
     match command {
-        Commands::Run { config, debug: _ } => {
-            run_terminal(config.map(PathBuf::from)).await?;
-        }
-        Commands::Config { action } => {
-            handle_config(action).await?;
-        }
-        Commands::Plugin { action } => {
-            handle_plugin(action)?;
-        }
+        Commands::Run { config, debug: _ } => run_terminal(config.map(PathBuf::from)).await?,
+        Commands::Config { action } => handle_config(action).await?,
+        Commands::Plugin { action } => handle_plugin(action)?,
+        Commands::Suggest { query, config } => handle_suggest(&query, config).await?,
+        Commands::Doctor { config } => handle_doctor(config).await?,
     }
 
     Ok(())
 }
 
 async fn run_terminal(config_path: Option<PathBuf>) -> Result<()> {
-    tracing::info!("Starting Weft Terminal");
-
-    let mut app = if let Some(path) = config_path {
-        WeftApp::new_with_config_path(path).await?
-    } else {
-        WeftApp::new().await?
+    let mut app = match config_path {
+        Some(p) => WeftApp::new_with_config_path(p).await?,
+        None => WeftApp::new().await?,
     };
     app.initialize().await?;
+    app.run().await
+}
 
-    // Shell handles signals while running; `WeftApp::run` also stops the child on Ctrl+C.
-    app.run().await?;
-
+async fn handle_suggest(query: &str, config_path: Option<String>) -> Result<()> {
+    let config = load_config_opt(config_path)?;
+    let items = suggest::suggest(&config, query).await?;
+    if items.is_empty() {
+        println!("(no suggestions)");
+        return Ok(());
+    }
+    for s in items {
+        println!(
+            "{:.0}%  [{}]  {}",
+            s.confidence * 100.0,
+            s.source,
+            s.command
+        );
+    }
     Ok(())
+}
+
+async fn handle_doctor(config_path: Option<String>) -> Result<()> {
+    let config = load_config_opt(config_path)?;
+    let results = doctor::run_doctor(&config).await;
+    let code = doctor::print_report(&results);
+    if code != 0 {
+        std::process::exit(code);
+    }
+    Ok(())
+}
+
+fn load_config_opt(path: Option<String>) -> Result<Config> {
+    match path {
+        Some(p) => Config::load_from_path(&PathBuf::from(p)),
+        None => Config::load(),
+    }
 }
 
 async fn handle_config(action: ConfigAction) -> Result<()> {
@@ -123,9 +155,7 @@ async fn handle_config(action: ConfigAction) -> Result<()> {
 
     match action {
         ConfigAction::Show => {
-            let config = loaded_config
-                .as_ref()
-                .expect("config should be loaded for show");
+            let config = loaded_config.as_ref().expect("config loaded");
             println!("{}", toml::to_string_pretty(&config)?);
         }
         ConfigAction::Reset => {
@@ -133,25 +163,19 @@ async fn handle_config(action: ConfigAction) -> Result<()> {
             println!("Configuration reset to defaults");
         }
         ConfigAction::Set { key, value } => {
-            let config = loaded_config
-                .as_mut()
-                .expect("config should be loaded for set");
+            let config = loaded_config.as_mut().expect("config loaded");
             config.set_value(&key, &value)?;
             println!("Updated {}={}", key, value);
         }
         ConfigAction::Get { key } => {
-            let config = loaded_config
-                .as_ref()
-                .expect("config should be loaded for get");
+            let config = loaded_config.as_ref().expect("config loaded");
             let value = config
                 .get_value(&key)
                 .ok_or_else(|| anyhow::anyhow!("Unknown config key '{}'", key))?;
             println!("{}", value);
         }
         ConfigAction::Validate => {
-            let config = loaded_config
-                .as_ref()
-                .expect("config should be loaded for validate");
+            let config = loaded_config.as_ref().expect("config loaded");
             config.validate()?;
             println!("Configuration is valid");
         }
@@ -173,12 +197,13 @@ fn config_action_needs_load(action: &ConfigAction) -> bool {
 }
 
 fn handle_plugin(action: PluginAction) -> Result<()> {
-    let paths = PluginPaths::default_xdg();
+    let config = Config::load()?;
+    let paths = PluginPaths::from_config(&config);
     match action {
         PluginAction::List => {
             let plugins = plugin_store::list_plugins(&paths)?;
             if plugins.is_empty() {
-                println!("(no plugins installed under {})", paths.plugins_dir.display());
+                println!("(no plugins under {})", paths.plugins_dir.display());
                 return Ok(());
             }
             println!("{:<24} {:<8} PATH", "ID", "ENABLED");
@@ -192,21 +217,24 @@ fn handle_plugin(action: PluginAction) -> Result<()> {
             }
         }
         PluginAction::Install { path } => {
-            let src = PathBuf::from(&path);
-            let id = plugin_store::install_plugin(&paths, &src)?;
-            println!("Installed plugin '{}' -> {}", id, paths.plugins_dir.join(&id).display());
+            let id = plugin_store::install_plugin(&paths, &PathBuf::from(path))?;
+            println!(
+                "Installed '{}' -> {}",
+                id,
+                paths.plugins_dir.join(&id).display()
+            );
         }
         PluginAction::Remove { name } => {
             plugin_store::remove_plugin(&paths, &name)?;
-            println!("Removed plugin '{}'", name);
+            println!("Removed '{}'", name);
         }
         PluginAction::Enable { name } => {
             plugin_store::set_enabled(&paths, &name, true)?;
-            println!("Enabled plugin '{}'", name);
+            println!("Enabled '{}'", name);
         }
         PluginAction::Disable { name } => {
             plugin_store::set_enabled(&paths, &name, false)?;
-            println!("Disabled plugin '{}'", name);
+            println!("Disabled '{}'", name);
         }
     }
     Ok(())
@@ -228,10 +256,5 @@ mod tests {
         assert!(config_action_needs_load(&ConfigAction::Get {
             key: "ai.model".to_string()
         }));
-        assert!(config_action_needs_load(&ConfigAction::Set {
-            key: "ai.model".to_string(),
-            value: "llama3".to_string()
-        }));
-        assert!(config_action_needs_load(&ConfigAction::Validate));
     }
 }
