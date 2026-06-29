@@ -72,7 +72,7 @@ enum PluginAction {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    let command = cli.command.unwrap_or_else(|| Commands::Run {
+    let command = cli.command.unwrap_or(Commands::Run {
         config: None,
         debug: false,
     });

@@ -107,15 +107,15 @@ mod tests {
     #[test]
     fn test_shutdown_flag() {
         SHUTDOWN.store(false, Ordering::SeqCst);
-        assert_eq!(SHUTDOWN.load(Ordering::SeqCst), false);
+        assert!(!SHUTDOWN.load(Ordering::SeqCst));
         request_shutdown();
-        assert_eq!(SHUTDOWN.load(Ordering::SeqCst), true);
+        assert!(SHUTDOWN.load(Ordering::SeqCst));
     }
 
     #[test]
     fn test_shutdown_idempotent() {
         SHUTDOWN.store(true, Ordering::SeqCst);
         request_shutdown();
-        assert_eq!(SHUTDOWN.load(Ordering::SeqCst), true);
+        assert!(SHUTDOWN.load(Ordering::SeqCst));
     }
 }
