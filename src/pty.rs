@@ -99,3 +99,23 @@ pub fn run_interactive_shell(shell: &str) -> Result<()> {
 pub fn request_shutdown() {
     SHUTDOWN.store(true, Ordering::SeqCst);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_shutdown_flag() {
+        SHUTDOWN.store(false, Ordering::SeqCst);
+        assert_eq!(SHUTDOWN.load(Ordering::SeqCst), false);
+        request_shutdown();
+        assert_eq!(SHUTDOWN.load(Ordering::SeqCst), true);
+    }
+
+    #[test]
+    fn test_shutdown_idempotent() {
+        SHUTDOWN.store(true, Ordering::SeqCst);
+        request_shutdown();
+        assert_eq!(SHUTDOWN.load(Ordering::SeqCst), true);
+    }
+}

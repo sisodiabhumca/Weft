@@ -192,7 +192,8 @@ impl AIEngine {
     }
 
     pub async fn update(&self) -> Result<()> {
-        let mut event_rx = self.event_rx.write().take().unwrap();
+        let mut event_rx = self.event_rx.write().take()
+            .ok_or_else(|| anyhow::anyhow!("Event receiver already taken"))?;
         
         while let Some(event) = event_rx.recv().await {
             debug!("Processing AI event: {:?}", event);
@@ -311,7 +312,8 @@ impl AIEngine {
         }
         
         // Sort by confidence
-        predictions.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+        predictions.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence)
+            .unwrap_or(std::cmp::Ordering::Equal));
         
         Ok(predictions)
     }

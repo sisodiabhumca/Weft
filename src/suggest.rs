@@ -4,12 +4,30 @@ use crate::config_simple::{AIConfig, Config};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Suggestion {
     pub command: String,
     pub confidence: f32,
     pub source: String,
+}
+
+// Simple rate limiter for AI requests (10 requests per minute)
+lazy_static::lazy_static! {
+    static ref LAST_REQUEST_TIME: Arc<std::sync::Mutex<Option<Instant>>> = Arc::new(std::sync::Mutex::new(None));
+}
+
+fn check_rate_limit() -> bool {
+    let mut last = LAST_REQUEST_TIME.lock().unwrap();
+    if let Some(time) = *last {
+        if time.elapsed() < Duration::from_secs(6) {
+            return false;
+        }
+    }
+    *last = Some(Instant::now());
+    true
 }
 
 pub async fn suggest(config: &Config, query: &str) -> Result<Vec<Suggestion>> {
@@ -19,6 +37,12 @@ pub async fn suggest(config: &Config, query: &str) -> Result<Vec<Suggestion>> {
         && config.ai.auto_suggestions
         && config.ai.provider.eq_ignore_ascii_case("ollama")
     {
+        // Check rate limit before making AI request
+        if !check_rate_limit() {
+            tracing::warn!("Rate limit exceeded for AI suggestions");
+            return Ok(out);
+        }
+
         if let Ok(ai) = ollama_suggestions(&config.ai, query).await {
             for s in ai {
                 if !out.iter().any(|x| x.command == s.command) {
@@ -172,4 +196,78 @@ async fn ollama_suggestions(ai: &AIConfig, query: &str) -> Result<Vec<Suggestion
         }
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config_simple::Config;
+
+    #[test]
+    fn test_static_suggestions_git() {
+        let suggestions = static_suggestions("git");
+        assert!(!suggestions.is_empty());
+        assert!(suggestions.iter().any(|s| s.command.contains("git status")));
+    }
+
+    #[test]
+    fn test_static_suggestions_docker() {
+        let suggestions = static_suggestions("docker");
+        assert!(!suggestions.is_empty());
+        assert!(suggestions.iter().any(|s| s.command.contains("docker ps")));
+    }
+
+    #[test]
+    fn test_static_suggestions_cargo() {
+        let suggestions = static_suggestions("cargo");
+        assert!(!suggestions.is_empty());
+        assert!(suggestions.iter().any(|s| s.command.contains("cargo build")));
+    }
+
+    #[test]
+    fn test_static_suggestions_empty() {
+        let suggestions = static_suggestions("");
+        assert!(!suggestions.is_empty());
+        assert!(suggestions.iter().any(|s| s.command.contains("ls")));
+    }
+
+    #[test]
+    fn test_static_suggestions_no_match() {
+        let suggestions = static_suggestions("xyz123");
+        assert!(!suggestions.is_empty());
+        assert_eq!(suggestions[0].command, "xyz123");
+    }
+
+    #[test]
+    fn test_suggestion_source_static() {
+        let suggestions = static_suggestions("git");
+        assert!(suggestions.iter().all(|s| s.source == "static"));
+    }
+
+    #[test]
+    fn test_suggestion_confidence_sorted() {
+        let mut suggestions = static_suggestions("git");
+        suggestions.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+        for i in 1..suggestions.len() {
+            assert!(suggestions[i-1].confidence >= suggestions[i].confidence);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_suggest_ai_disabled() {
+        let mut config = Config::default();
+        config.ai.enabled = false;
+        let suggestions = suggest(&config, "git").await.unwrap();
+        assert!(!suggestions.is_empty());
+        assert!(suggestions.iter().all(|s| s.source == "static"));
+    }
+
+    #[tokio::test]
+    async fn test_suggest_auto_suggestions_disabled() {
+        let mut config = Config::default();
+        config.ai.auto_suggestions = false;
+        let suggestions = suggest(&config, "git").await.unwrap();
+        assert!(!suggestions.is_empty());
+        assert!(suggestions.iter().all(|s| s.source == "static"));
+    }
 }

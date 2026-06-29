@@ -1,5 +1,5 @@
 //! Terminal engine implementation with advanced features
-//! 
+//!
 //! This module provides the core terminal emulation functionality,
 //! including command processing, session management, and output handling.
 
@@ -8,6 +8,75 @@ use parking_lot::RwLock;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
+
+/// Validate shell command for security
+/// Blocks potentially dangerous commands and patterns
+pub fn validate_shell_command(command: &str) -> Result<CommandValidationResult> {
+    let mut result = CommandValidationResult {
+        is_safe: true,
+        warnings: Vec::new(),
+        blocked_reason: None,
+    };
+
+    let command_lower = command.to_lowercase();
+
+    // Block commands that could be dangerous
+    let dangerous_patterns = [
+        "rm -rf /",
+        "rm -rf /*",
+        ":(){:|:&};:",  // fork bomb
+        "mkfs",
+        "dd if=",
+        "> /dev/sda",
+        "chmod 777 /",
+        "chown -R root",
+        "wget http://",
+        "curl http://",
+        "nc -l",
+        "netcat",
+    ];
+
+    for pattern in &dangerous_patterns {
+        if command_lower.contains(pattern) && !pattern.contains("localhost") {
+            result.is_safe = false;
+            result.blocked_reason = Some(format!(
+                "Command contains potentially dangerous pattern: {}",
+                pattern
+            ));
+            return Ok(result);
+        }
+    }
+
+    // Warn about commands that modify system state
+    let warning_patterns = ["sudo ", "su ", "chmod ", "chown ", "mv /", "cp /"];
+    for pattern in &warning_patterns {
+        if command_lower.starts_with(pattern) {
+            result.warnings.push(format!(
+                "Command starts with system-modifying pattern: {}",
+                pattern
+            ));
+        }
+    }
+
+    // Check for command chaining that could bypass validation
+    if command_lower.contains("&&") || command_lower.contains("||") || command_lower.contains(";") {
+        result.warnings.push("Command contains chaining operators (&&, ||, ;)".to_string());
+    }
+
+    // Check for pipe redirection
+    if command_lower.contains("|") {
+        result.warnings.push("Command contains pipe redirection".to_string());
+    }
+
+    Ok(result)
+}
+
+#[derive(Debug)]
+pub struct CommandValidationResult {
+    pub is_safe: bool,
+    pub warnings: Vec<String>,
+    pub blocked_reason: Option<String>,
+}
 
 pub struct TerminalEngine {
     config: Arc<crate::config::Config>,
@@ -86,7 +155,8 @@ impl TerminalEngine {
     }
 
     pub async fn process_events(&self) -> Result<()> {
-        let mut event_rx = self.event_rx.write().take().unwrap();
+        let mut event_rx = self.event_rx.write().take()
+            .ok_or_else(|| anyhow::anyhow!("Event receiver already taken"))?;
         
         while let Some(event) = event_rx.recv().await {
             debug!("Processing terminal event: {:?}", event);
@@ -117,15 +187,25 @@ impl TerminalEngine {
 
     async fn handle_input(&self, session_id: String, data: Vec<u8>) -> Result<()> {
         debug!("Handling input for session {}: {:?}", session_id, data);
-        
+
         // Parse command from input
         let input_str = String::from_utf8_lossy(&data);
         if let Some(command) = input_str.lines().next() {
             if !command.trim().is_empty() {
+                // Validate command before execution
+                let validation = validate_shell_command(&command)?;
+                if !validation.is_safe {
+                    warn!("Command blocked: {}", validation.blocked_reason.unwrap_or_default());
+                    return Ok(());
+                }
+                for warning in &validation.warnings {
+                    warn!("Command warning: {}", warning);
+                }
+
                 self.execute_command(session_id, command.to_string()).await?;
             }
         }
-        
+
         Ok(())
     }
 

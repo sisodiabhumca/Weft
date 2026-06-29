@@ -9,6 +9,77 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tracing::{info, warn};
 
+/// Validate plugin security before installation
+pub fn validate_plugin_security(src: &Path) -> Result<SecurityValidationResult> {
+    let mut result = SecurityValidationResult {
+        is_safe: true,
+        warnings: Vec::new(),
+        errors: Vec::new(),
+    };
+
+    // Check for suspicious files
+    if let Ok(entries) = fs::read_dir(src) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                let file_name = path.file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("");
+
+                // Block potentially dangerous files
+                if file_name.ends_with(".so") || file_name.ends_with(".dll") || file_name.ends_with(".dylib") {
+                    result.errors.push(format!(
+                        "Native library found: {}. Native plugins are not supported for security reasons.",
+                        file_name
+                    ));
+                    result.is_safe = false;
+                }
+
+                // Check for executable scripts outside hooks directory
+                if is_executable(&path) && !path.starts_with(src.join("hooks")) {
+                    result.warnings.push(format!(
+                        "Executable file outside hooks directory: {}",
+                        file_name
+                    ));
+                }
+            }
+        }
+    }
+
+    // Validate plugin.toml if present
+    let manifest_path = src.join("plugin.toml");
+    if manifest_path.exists() {
+        if let Ok(content) = fs::read_to_string(&manifest_path) {
+            // Check for suspicious patterns in manifest
+            if content.contains("http://") && !content.contains("localhost") {
+                result.warnings.push("Plugin manifest contains non-localhost HTTP URLs".to_string());
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+#[cfg(unix)]
+fn is_executable(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    path.metadata()
+        .map(|m| m.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn is_executable(_path: &Path) -> bool {
+    false
+}
+
+#[derive(Debug)]
+pub struct SecurityValidationResult {
+    pub is_safe: bool,
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct PluginPaths {
     pub plugins_dir: PathBuf,
@@ -219,6 +290,19 @@ pub fn list_plugins(paths: &PluginPaths) -> Result<Vec<PluginEntry>> {
 pub fn install_plugin(paths: &PluginPaths, src: &Path) -> Result<String> {
     if !src.is_dir() {
         anyhow::bail!("install source must be a directory: {}", src.display());
+    }
+
+    // Security validation
+    let security_result = validate_plugin_security(src)?;
+    if !security_result.is_safe {
+        for error in &security_result.errors {
+            warn!("Security error: {}", error);
+        }
+        anyhow::bail!("Plugin failed security validation: {}", security_result.errors.join(", "));
+    }
+
+    for warning in &security_result.warnings {
+        warn!("Security warning: {}", warning);
     }
 
     fs::create_dir_all(&paths.plugins_dir)?;

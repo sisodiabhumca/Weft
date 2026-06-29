@@ -198,3 +198,81 @@ pub fn print_report(results: &[CheckResult]) -> i32 {
         0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config_simple::Config;
+
+    #[test]
+    fn test_check_config_valid() {
+        let config = Config::default();
+        let result = check_config_valid(&config);
+        assert_eq!(result.status, CheckStatus::Pass);
+    }
+
+    #[test]
+    fn test_check_shell_valid() {
+        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+        let result = check_shell(&shell);
+        assert_eq!(result.status, CheckStatus::Pass);
+    }
+
+    #[test]
+    fn test_check_shell_invalid() {
+        let result = check_shell("/nonexistent/shell");
+        assert_eq!(result.status, CheckStatus::Fail);
+    }
+
+    #[test]
+    fn test_check_plugins_dir() {
+        let temp_dir = std::env::temp_dir().join("weft-test-plugins");
+        let result = check_plugins_dir(&temp_dir);
+        assert_eq!(result.status, CheckStatus::Pass);
+        std::fs::remove_dir_all(temp_dir).ok();
+    }
+
+    #[test]
+    fn test_print_report_all_pass() {
+        let results = vec![
+            CheckResult {
+                name: "test1".to_string(),
+                status: CheckStatus::Pass,
+                message: "ok".to_string(),
+            },
+            CheckResult {
+                name: "test2".to_string(),
+                status: CheckStatus::Pass,
+                message: "ok".to_string(),
+            },
+        ];
+        let code = print_report(&results);
+        assert_eq!(code, 0);
+    }
+
+    #[test]
+    fn test_print_report_with_failures() {
+        let results = vec![
+            CheckResult {
+                name: "test1".to_string(),
+                status: CheckStatus::Fail,
+                message: "error".to_string(),
+            },
+        ];
+        let code = print_report(&results);
+        assert_eq!(code, 1);
+    }
+
+    #[test]
+    fn test_print_report_with_warnings() {
+        let results = vec![
+            CheckResult {
+                name: "test1".to_string(),
+                status: CheckStatus::Warn,
+                message: "warning".to_string(),
+            },
+        ];
+        let code = print_report(&results);
+        assert_eq!(code, 0);
+    }
+}

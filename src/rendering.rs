@@ -94,7 +94,8 @@ impl Renderer {
     }
 
     async fn initialize_gpu(&self) -> Result<()> {
-        let window = self.window.read().as_ref().unwrap();
+        let window = self.window.read().as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Window not initialized"))?;
         
         // Create wgpu instance
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -105,7 +106,8 @@ impl Renderer {
         });
 
         // Create surface
-        let surface = unsafe { instance.create_surface(window) }.unwrap();
+        let surface = unsafe { instance.create_surface(window) }
+            .map_err(|e| anyhow::anyhow!("Failed to create surface: {}", e))?;
 
         // Request adapter
         let adapter = instance
@@ -136,7 +138,11 @@ impl Renderer {
             .iter()
             .copied()
             .find(|f| f.is_srgb())
-            .unwrap_or(surface_caps.formats[0]);
+            .unwrap_or_else(|| {
+                surface_caps.formats.first()
+                    .copied()
+                    .ok_or_else(|| anyhow::anyhow!("No surface formats available"))
+            })?;
 
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -144,7 +150,8 @@ impl Renderer {
             width: window.inner_size().width,
             height: window.inner_size().height,
             present_mode: wgpu::PresentMode::Fifo,
-            alpha_mode: surface_caps.alpha_modes[0],
+            alpha_mode: *surface_caps.alpha_modes.first()
+                .ok_or_else(|| anyhow::anyhow!("No alpha modes available"))?,
             view_formats: vec![surface_format],
         };
 
@@ -166,10 +173,12 @@ impl Renderer {
 
     pub async fn render(&self) -> Result<()> {
         let window = self.window.read();
-        let window = window.as_ref().unwrap();
+        let window = window.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Window not initialized"))?;
         
         let gpu_context = self.gpu_context.read();
-        let gpu_context = gpu_context.as_ref().unwrap();
+        let gpu_context = gpu_context.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("GPU context not initialized"))?;
         
         let ui_state = self.ui_state.read();
         
@@ -361,5 +370,6 @@ fn load_icon() -> winit::window::Icon {
         255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
     ];
     
-    winit::window::Icon::from_rgba(rgba, 16, 16).unwrap()
+    winit::window::Icon::from_rgba(rgba, 16, 16)
+        .map_err(|e| anyhow::anyhow!("Failed to create icon: {}", e))?
 }

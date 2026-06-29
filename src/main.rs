@@ -72,7 +72,7 @@ enum PluginAction {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    let command = cli.command.unwrap_or(Commands::Run {
+    let command = cli.command.unwrap_or_else(|| Commands::Run {
         config: None,
         debug: false,
     });
@@ -93,10 +93,18 @@ async fn main() -> Result<()> {
 
     match command {
         Commands::Run { config, debug: _ } => run_terminal(config.map(PathBuf::from)).await?,
-        Commands::Config { action } => handle_config(action).await?,
-        Commands::Plugin { action } => handle_plugin(action)?,
-        Commands::Suggest { query, config } => handle_suggest(&query, config).await?,
-        Commands::Doctor { config } => handle_doctor(config).await?,
+        Commands::Config { action } => {
+            handle_config(action).await?;
+        }
+        Commands::Plugin { action } => {
+            handle_plugin(action)?;
+        }
+        Commands::Suggest { query, config } => {
+            handle_suggest(&query, config).await?;
+        }
+        Commands::Doctor { config } => {
+            handle_doctor(config).await?;
+        }
     }
 
     Ok(())
@@ -155,7 +163,7 @@ async fn handle_config(action: ConfigAction) -> Result<()> {
 
     match action {
         ConfigAction::Show => {
-            let config = loaded_config.as_ref().expect("config loaded");
+            let config = loaded_config.as_ref().ok_or_else(|| anyhow::anyhow!("config not loaded"))?;
             println!("{}", toml::to_string_pretty(&config)?);
         }
         ConfigAction::Reset => {
@@ -163,19 +171,19 @@ async fn handle_config(action: ConfigAction) -> Result<()> {
             println!("Configuration reset to defaults");
         }
         ConfigAction::Set { key, value } => {
-            let config = loaded_config.as_mut().expect("config loaded");
+            let config = loaded_config.as_mut().ok_or_else(|| anyhow::anyhow!("config not loaded"))?;
             config.set_value(&key, &value)?;
             println!("Updated {}={}", key, value);
         }
         ConfigAction::Get { key } => {
-            let config = loaded_config.as_ref().expect("config loaded");
+            let config = loaded_config.as_ref().ok_or_else(|| anyhow::anyhow!("config not loaded"))?;
             let value = config
                 .get_value(&key)
                 .ok_or_else(|| anyhow::anyhow!("Unknown config key '{}'", key))?;
             println!("{}", value);
         }
         ConfigAction::Validate => {
-            let config = loaded_config.as_ref().expect("config loaded");
+            let config = loaded_config.as_ref().ok_or_else(|| anyhow::anyhow!("config not loaded"))?;
             config.validate()?;
             println!("Configuration is valid");
         }

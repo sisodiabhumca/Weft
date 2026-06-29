@@ -18,7 +18,9 @@ pub struct TerminalConfig {
     pub shell: String,
     pub font_family: String,
     pub font_size: f32,
+    pub line_height: f32,
     pub cursor_blink: bool,
+    pub scrollback_size: usize,
     #[serde(default = "default_use_pty")]
     pub use_pty: bool,
 }
@@ -27,12 +29,16 @@ fn default_use_pty() -> bool {
     true
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AIConfig {
     pub enabled: bool,
     pub provider: String,
     pub model: String,
+    pub api_key: Option<String>,
     pub auto_suggestions: bool,
+    pub learning_enabled: bool,
+    pub context_window: usize,
+    pub prediction_threshold: f32,
     #[serde(default = "default_ollama_endpoint")]
     pub endpoint: String,
 }
@@ -55,7 +61,9 @@ impl Default for TerminalConfig {
             shell: std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string()),
             font_family: "JetBrains Mono".to_string(),
             font_size: 14.0,
+            line_height: 1.2,
             cursor_blink: true,
+            scrollback_size: 10000,
             use_pty: true,
         }
     }
@@ -67,7 +75,11 @@ impl Default for AIConfig {
             enabled: true,
             provider: "ollama".to_string(),
             model: "llama3.2".to_string(),
+            api_key: None,
             auto_suggestions: true,
+            learning_enabled: true,
+            context_window: 4096,
+            prediction_threshold: 0.7,
             endpoint: default_ollama_endpoint(),
         }
     }
@@ -211,8 +223,20 @@ impl Config {
             return Err(anyhow::anyhow!("terminal.font_size must be > 0"));
         }
 
+        if self.terminal.line_height <= 0.0 {
+            return Err(anyhow::anyhow!("terminal.line_height must be > 0"));
+        }
+
         if self.terminal.shell.trim().is_empty() {
             return Err(anyhow::anyhow!("terminal.shell cannot be empty"));
+        }
+
+        if self.ai.enabled && self.ai.context_window == 0 {
+            return Err(anyhow::anyhow!("ai.context_window must be positive when AI is enabled"));
+        }
+
+        if self.ai.prediction_threshold < 0.0 || self.ai.prediction_threshold > 1.0 {
+            return Err(anyhow::anyhow!("ai.prediction_threshold must be between 0.0 and 1.0"));
         }
 
         if self.ai.model.trim().is_empty() {
@@ -242,5 +266,143 @@ mod tests {
         let c = Config::default();
         assert!(c.plugins.enabled);
         assert!(c.terminal.use_pty);
+    }
+
+    #[test]
+    fn test_validate_valid_config() {
+        let config = Config::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_invalid_font_size() {
+        let mut config = Config::default();
+        config.terminal.font_size = -1.0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_invalid_line_height() {
+        let mut config = Config::default();
+        config.terminal.line_height = 0.0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_empty_shell() {
+        let mut config = Config::default();
+        config.terminal.shell = "".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_whitespace_shell() {
+        let mut config = Config::default();
+        config.terminal.shell = "   ".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_zero_context_window_with_ai_enabled() {
+        let mut config = Config::default();
+        config.ai.enabled = true;
+        config.ai.context_window = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_invalid_prediction_threshold_low() {
+        let mut config = Config::default();
+        config.ai.prediction_threshold = -0.5;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_invalid_prediction_threshold_high() {
+        let mut config = Config::default();
+        config.ai.prediction_threshold = 1.5;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_empty_ai_model() {
+        let mut config = Config::default();
+        config.ai.model = "".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_empty_ai_endpoint() {
+        let mut config = Config::default();
+        config.ai.endpoint = "".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_get_value_terminal_shell() {
+        let config = Config::default();
+        let value = config.get_value("terminal.shell");
+        assert!(value.is_some());
+        assert!(!value.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_get_value_ai_enabled() {
+        let config = Config::default();
+        let value = config.get_value("ai.enabled");
+        assert_eq!(value, Some("true".to_string()));
+    }
+
+    #[test]
+    fn test_get_value_unknown_key() {
+        let config = Config::default();
+        let value = config.get_value("unknown.key");
+        assert!(value.is_none());
+    }
+
+    #[test]
+    fn test_set_value_terminal_shell() {
+        let mut config = Config::default();
+        assert!(config.set_value("terminal.shell", "/bin/bash").is_ok());
+        assert_eq!(config.terminal.shell, "/bin/bash");
+    }
+
+    #[test]
+    fn test_set_value_invalid_font_size() {
+        let mut config = Config::default();
+        assert!(config.set_value("terminal.font_size", "invalid").is_err());
+    }
+
+    #[test]
+    fn test_set_value_invalid_bool() {
+        let mut config = Config::default();
+        assert!(config.set_value("terminal.use_pty", "maybe").is_err());
+    }
+
+    #[test]
+    fn test_set_value_unknown_key() {
+        let mut config = Config::default();
+        assert!(config.set_value("unknown.key", "value").is_err());
+    }
+
+    #[test]
+    fn test_default_plugins_dir() {
+        let dir = Config::default_plugins_dir();
+        assert!(dir.ends_with("weft/plugins"));
+    }
+
+    #[test]
+    fn test_resolved_plugins_dir_default() {
+        let config = Config::default();
+        let dir = config.resolved_plugins_dir();
+        assert!(dir.ends_with("weft/plugins"));
+    }
+
+    #[test]
+    fn test_resolved_plugins_dir_custom() {
+        let mut config = Config::default();
+        config.plugins.plugins_dir = Some("/custom/path".into());
+        let dir = config.resolved_plugins_dir();
+        assert_eq!(dir, PathBuf::from("/custom/path"));
     }
 }

@@ -19,6 +19,17 @@ toml = "0.8"
 dirs = "5.0.1"
 portable-pty = "0.8"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+chrono = "0.4"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+parking_lot = "0.12"
+lazy_static = "1.5"
+
+# Optional dependencies for feature-gated modules
+libloading = { version = "0.8", optional = true }
+wgpu = { version = "0.20", optional = true }
+winit = { version = "0.29", optional = true }
+tokio-tungstenite = { version = "0.21", optional = true }
+futures-util = { version = "0.3", optional = true }
 
 [dev-dependencies]
 criterion = "0.5.1"
@@ -34,7 +45,8 @@ path = "src/lib.rs"
 
 [features]
 default = []
-gpu-acceleration = []
+gpu-acceleration = ["wgpu", "winit"]
 ai-features = []
-collaboration = []
-plugins = []
+collaboration = ["tokio-tungstenite", "futures-util"]
+plugins = ["libloading"]
+full = ["gpu-acceleration", "ai-features", "collaboration", "plugins"]

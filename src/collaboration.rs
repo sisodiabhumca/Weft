@@ -160,7 +160,8 @@ impl CollaborationEngine {
     }
 
     pub async fn process_events(&self) -> Result<()> {
-        let mut event_rx = self.event_rx.write().take().unwrap();
+        let mut event_rx = self.event_rx.write().take()
+            .ok_or_else(|| anyhow::anyhow!("Event receiver already taken"))?;
         
         while let Some(event) = event_rx.recv().await {
             debug!("Processing collaboration event: {:?}", event);

@@ -24,3 +24,11 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Test
         run: cargo test --all-targets
+      - name: Security Audit
+        run: |
+          cargo install cargo-audit
+          cargo audit
+      - name: Test Coverage
+        run: |
+          cargo install cargo-tarpaulin
+          cargo tarpaulin --out Html
