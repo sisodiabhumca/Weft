@@ -232,11 +232,15 @@ impl Config {
         }
 
         if self.ai.enabled && self.ai.context_window == 0 {
-            return Err(anyhow::anyhow!("ai.context_window must be positive when AI is enabled"));
+            return Err(anyhow::anyhow!(
+                "ai.context_window must be positive when AI is enabled"
+            ));
         }
 
         if self.ai.prediction_threshold < 0.0 || self.ai.prediction_threshold > 1.0 {
-            return Err(anyhow::anyhow!("ai.prediction_threshold must be between 0.0 and 1.0"));
+            return Err(anyhow::anyhow!(
+                "ai.prediction_threshold must be between 0.0 and 1.0"
+            ));
         }
 
         if self.ai.model.trim().is_empty() {

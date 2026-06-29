@@ -22,12 +22,13 @@ pub fn validate_plugin_security(src: &Path) -> Result<SecurityValidationResult> 
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() {
-                let file_name = path.file_name()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("");
+                let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
 
                 // Block potentially dangerous files
-                if file_name.ends_with(".so") || file_name.ends_with(".dll") || file_name.ends_with(".dylib") {
+                if file_name.ends_with(".so")
+                    || file_name.ends_with(".dll")
+                    || file_name.ends_with(".dylib")
+                {
                     result.errors.push(format!(
                         "Native library found: {}. Native plugins are not supported for security reasons.",
                         file_name
@@ -52,7 +53,9 @@ pub fn validate_plugin_security(src: &Path) -> Result<SecurityValidationResult> 
         if let Ok(content) = fs::read_to_string(&manifest_path) {
             // Check for suspicious patterns in manifest
             if content.contains("http://") && !content.contains("localhost") {
-                result.warnings.push("Plugin manifest contains non-localhost HTTP URLs".to_string());
+                result
+                    .warnings
+                    .push("Plugin manifest contains non-localhost HTTP URLs".to_string());
             }
         }
     }
@@ -298,7 +301,10 @@ pub fn install_plugin(paths: &PluginPaths, src: &Path) -> Result<String> {
         for error in &security_result.errors {
             warn!("Security error: {}", error);
         }
-        anyhow::bail!("Plugin failed security validation: {}", security_result.errors.join(", "));
+        anyhow::bail!(
+            "Plugin failed security validation: {}",
+            security_result.errors.join(", ")
+        );
     }
 
     for warning in &security_result.warnings {

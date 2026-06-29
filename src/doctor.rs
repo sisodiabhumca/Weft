@@ -252,26 +252,22 @@ mod tests {
 
     #[test]
     fn test_print_report_with_failures() {
-        let results = vec![
-            CheckResult {
-                name: "test1".to_string(),
-                status: CheckStatus::Fail,
-                message: "error".to_string(),
-            },
-        ];
+        let results = vec![CheckResult {
+            name: "test1".to_string(),
+            status: CheckStatus::Fail,
+            message: "error".to_string(),
+        }];
         let code = print_report(&results);
         assert_eq!(code, 1);
     }
 
     #[test]
     fn test_print_report_with_warnings() {
-        let results = vec![
-            CheckResult {
-                name: "test1".to_string(),
-                status: CheckStatus::Warn,
-                message: "warning".to_string(),
-            },
-        ];
+        let results = vec![CheckResult {
+            name: "test1".to_string(),
+            status: CheckStatus::Warn,
+            message: "warning".to_string(),
+        }];
         let code = print_report(&results);
         assert_eq!(code, 0);
     }

@@ -221,7 +221,9 @@ mod tests {
     fn test_static_suggestions_cargo() {
         let suggestions = static_suggestions("cargo");
         assert!(!suggestions.is_empty());
-        assert!(suggestions.iter().any(|s| s.command.contains("cargo build")));
+        assert!(suggestions
+            .iter()
+            .any(|s| s.command.contains("cargo build")));
     }
 
     #[test]
@@ -247,9 +249,13 @@ mod tests {
     #[test]
     fn test_suggestion_confidence_sorted() {
         let mut suggestions = static_suggestions("git");
-        suggestions.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+        suggestions.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         for i in 1..suggestions.len() {
-            assert!(suggestions[i-1].confidence >= suggestions[i].confidence);
+            assert!(suggestions[i - 1].confidence >= suggestions[i].confidence);
         }
     }
 

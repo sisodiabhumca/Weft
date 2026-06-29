@@ -163,7 +163,9 @@ async fn handle_config(action: ConfigAction) -> Result<()> {
 
     match action {
         ConfigAction::Show => {
-            let config = loaded_config.as_ref().ok_or_else(|| anyhow::anyhow!("config not loaded"))?;
+            let config = loaded_config
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("config not loaded"))?;
             println!("{}", toml::to_string_pretty(&config)?);
         }
         ConfigAction::Reset => {
@@ -171,19 +173,25 @@ async fn handle_config(action: ConfigAction) -> Result<()> {
             println!("Configuration reset to defaults");
         }
         ConfigAction::Set { key, value } => {
-            let config = loaded_config.as_mut().ok_or_else(|| anyhow::anyhow!("config not loaded"))?;
+            let config = loaded_config
+                .as_mut()
+                .ok_or_else(|| anyhow::anyhow!("config not loaded"))?;
             config.set_value(&key, &value)?;
             println!("Updated {}={}", key, value);
         }
         ConfigAction::Get { key } => {
-            let config = loaded_config.as_ref().ok_or_else(|| anyhow::anyhow!("config not loaded"))?;
+            let config = loaded_config
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("config not loaded"))?;
             let value = config
                 .get_value(&key)
                 .ok_or_else(|| anyhow::anyhow!("Unknown config key '{}'", key))?;
             println!("{}", value);
         }
         ConfigAction::Validate => {
-            let config = loaded_config.as_ref().ok_or_else(|| anyhow::anyhow!("config not loaded"))?;
+            let config = loaded_config
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("config not loaded"))?;
             config.validate()?;
             println!("Configuration is valid");
         }
